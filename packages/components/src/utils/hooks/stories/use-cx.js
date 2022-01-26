@@ -72,6 +72,26 @@ export const _slotfill = () => {
 	);
 };
 
+export const _slotFillSimple = () => {
+	const { Fill, Slot } = createSlotFill( 'UseCxExampleSlotTwo' );
+
+	const redText = css`
+		color: red;
+	`;
+
+	return (
+		<SlotFillProvider>
+			<Iframe>
+				<Fill name="test-slot">
+					<Example args={ [ redText ] }>
+						This text should be red
+					</Example>
+				</Fill>
+			</Iframe>
+			<Slot bubblesVirtually name="test-slot" />
+		</SlotFillProvider>
+	);
+};
 export const _default = () => {
 	const redText = css`
 		color: red;
