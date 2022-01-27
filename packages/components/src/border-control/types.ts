@@ -107,6 +107,12 @@ export type BorderDropdownProps = {
 	 */
 	onChange: ( newBorder: Border | undefined ) => void;
 	/**
+	 * Any previous style selection made by the user. This can be used to
+	 * reapply that previous selection when, for example, a zero border width is
+	 * to a non-zero value.
+	 */
+	previousStyleSelection?: string;
+	/**
 	 * This controls whether to render border style options.
 	 */
 	showStyle?: boolean;

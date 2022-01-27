@@ -66,6 +66,14 @@ A callback invoked when the border color or style selections change.
 
 - Required: Yes
 
+### `previousStyleSelection`: `string`
+
+Any previous style selection made by the user. This can be used to reapply that
+previous selection when, for example, a zero border width is to a non-zero
+value.
+
+- Required: Yes
+
 ### `showStyle`: `boolean`
 
 This controls whether to render border style options.

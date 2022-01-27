@@ -35,7 +35,9 @@ const BorderDropdown = (
 		disableCustomColors,
 		enableAlpha,
 		indicatorClassName,
-		onChange,
+		onReset,
+		onColorChange,
+		onStyleChange,
 		popoverClassName,
 		popoverContentClassName,
 		popoverControlsClassName,
@@ -44,9 +46,16 @@ const BorderDropdown = (
 		...otherProps
 	} = useBorderDropdown( props );
 
+	const { color, style } = border || {};
+	const fallbackColor = !! style && style !== 'none' ? '#ddd' : undefined;
 	const indicatorBorderStyles = {
-		borderStyle: border?.style,
-		borderColor: border?.color,
+		// The border style is set to `none` when border width is zero. Forcing
+		// the solid style in this case maintains the positioning of the inner
+		// ColorIndicator.
+		borderStyle: style === 'none' ? 'solid' : style,
+		// If there is no color selected but we have a style to display, apply
+		// a border color anyway.
+		borderColor: color || fallbackColor,
 	};
 
 	const renderToggle = ( { onToggle = noop } ) => (
@@ -58,19 +67,11 @@ const BorderDropdown = (
 			<span style={ indicatorBorderStyles }>
 				<ColorIndicator
 					className={ indicatorClassName }
-					colorValue={ border?.color }
+					colorValue={ color }
 				/>
 			</span>
 		</Button>
 	);
-
-	const onColorChange = ( color: string | undefined ) => {
-		onChange( { ...border, color } );
-	};
-
-	const onStyleChange = ( style: string | undefined ) => {
-		onChange( { ...border, style } );
-	};
 
 	const renderContent = ( { onClose }: BorderPopoverProps ) => (
 		<>
@@ -86,7 +87,7 @@ const BorderDropdown = (
 				</HStack>
 				<ColorPalette
 					className={ popoverContentClassName }
-					value={ border?.color }
+					value={ color }
 					onChange={ onColorChange }
 					{ ...{ colors, disableCustomColors } }
 					__experimentalHasMultipleOrigins={
@@ -101,7 +102,7 @@ const BorderDropdown = (
 				{ showStyle && (
 					<BorderStyleControl
 						label={ __( 'Style' ) }
-						value={ border?.style }
+						value={ style }
 						onChange={ onStyleChange }
 					/>
 				) }
@@ -111,11 +112,7 @@ const BorderDropdown = (
 				className={ resetButtonClassName }
 				variant="tertiary"
 				onClick={ () => {
-					onChange( {
-						...border,
-						color: undefined,
-						style: undefined,
-					} );
+					onReset();
 					onClose();
 				} }
 			>

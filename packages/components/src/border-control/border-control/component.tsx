@@ -42,6 +42,7 @@ const BorderControl = (
 		onSliderChange,
 		onWidthChange,
 		placeholder,
+		previousStyleSelection,
 		showStyle = true,
 		sliderClassName,
 		value: border,
@@ -70,6 +71,7 @@ const BorderControl = (
 						enableAlpha={ enableAlpha }
 						onChange={ onBorderChange }
 						showStyle={ showStyle }
+						previousStyleSelection={ previousStyleSelection }
 						__experimentalHasMultipleOrigins={
 							__experimentalHasMultipleOrigins
 						}
