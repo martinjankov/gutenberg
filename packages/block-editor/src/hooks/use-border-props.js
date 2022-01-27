@@ -2,8 +2,7 @@
  * Internal dependencies
  */
 import { getInlineStyles } from './style';
-import { getBorderClasses } from './border-color';
-import { getMultiOriginColor } from './border';
+import { getBorderClasses, getMultiOriginColor } from './border';
 import useMultipleOriginColorsAndGradients from '../components/colors-gradients/use-multiple-origin-colors-and-gradients';
 
 // This utility is intended to assist where the serialization of the border

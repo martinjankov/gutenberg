@@ -1,4 +1,9 @@
 /**
+ * External dependencies
+ */
+import classnames from 'classnames';
+
+/**
  * WordPress dependencies
  */
 import { getBlockSupport } from '@wordpress/blocks';
@@ -8,7 +13,9 @@ import {
 	isDefinedBorder,
 	hasSplitBorders,
 } from '@wordpress/components';
+import { createHigherOrderComponent } from '@wordpress/compose';
 import { Platform } from '@wordpress/element';
+import { addFilter } from '@wordpress/hooks';
 import { __ } from '@wordpress/i18n';
 
 /**
@@ -19,6 +26,7 @@ import {
 	hasBorderRadiusValue,
 	resetBorderRadius,
 } from './border-radius';
+import { getColorClassName } from '../components/colors';
 import InspectorControls from '../components/inspector-controls';
 import useMultipleOriginColorsAndGradients from '../components/colors-gradients/use-multiple-origin-colors-and-gradients';
 import useSetting from '../components/use-setting';
@@ -352,3 +360,236 @@ export function removeBorderAttribute( style, attribute ) {
 		},
 	} );
 }
+
+/**
+ * Filters registered block settings, extending attributes to include
+ * `borderColor` if needed.
+ *
+ * @param {Object} settings Original block settings.
+ *
+ * @return {Object} Updated block settings.
+ */
+function addAttributes( settings ) {
+	if ( ! hasBorderSupport( settings, 'color' ) ) {
+		return settings;
+	}
+
+	// Allow blocks to specify border color values if needed.
+	const { attributes } = settings;
+
+	// Skip any adjustments if block already defines both border color
+	// attributes to set defaults etc.
+	if ( attributes.borderColor && attributes.sideBorderColors ) {
+		return settings;
+	}
+
+	// If we are missing border color attribute definition, add it.
+	if ( ! attributes.borderColor ) {
+		return {
+			...settings,
+			attributes: {
+				...attributes,
+				borderColor: { type: 'string' },
+			},
+		};
+	}
+
+	// We are missing attribute for side border colors, add it to existing
+	// attribute definitions.
+	return {
+		...settings,
+		attributes: {
+			...attributes,
+			sideBorderColors: { type: 'object' },
+		},
+	};
+}
+
+/**
+ * Override props assigned to save component to inject border color.
+ *
+ * @param {Object} props      Additional props applied to save element.
+ * @param {Object} blockType  Block type definition.
+ * @param {Object} attributes Block's attributes.
+ *
+ * @return {Object} Filtered props to apply to save element.
+ */
+function addSaveProps( props, blockType, attributes ) {
+	if (
+		! hasBorderSupport( blockType, 'color' ) ||
+		shouldSkipSerialization( blockType )
+	) {
+		return props;
+	}
+
+	const borderClasses = getBorderClasses( attributes );
+	const newClassName = classnames( props.className, borderClasses );
+
+	// If we are clearing the last of the previous classes in `className`
+	// set it to `undefined` to avoid rendering empty DOM attributes.
+	props.className = newClassName ? newClassName : undefined;
+
+	return props;
+}
+
+/**
+ * Generates a CSS class name consisting of all the applicable border color
+ * classes given the current block attributes.
+ *
+ * @param {Object} attributes Block's attributes.
+ *
+ * @return {string} CSS class name.
+ */
+export function getBorderClasses( attributes ) {
+	const { borderColor, style } = attributes;
+	const borderColorClass = getColorClassName( 'border-color', borderColor );
+
+	return classnames( {
+		'has-border-color': borderColor || style?.border?.color,
+		[ borderColorClass ]: !! borderColorClass,
+		...getSideBorderClasses( attributes ),
+	} );
+}
+
+/**
+ * Generates a collection of CSS classes for the block's current border color
+ * selections. The results are intended to be further processed via a call
+ * through `classnames()`.
+ *
+ * @param {Object} attributes Block attributes.
+ * @return {Object}           CSS classes for side border colors.
+ */
+function getSideBorderClasses( attributes ) {
+	const { sideBorderColors, style } = attributes;
+	const sides = [ 'top', 'right', 'bottom', 'left' ];
+
+	return sides.reduce( ( classes, side ) => {
+		const color = sideBorderColors?.[ side ];
+		const hasColor = color || style?.border?.[ side ]?.color;
+		const baseClassName = `border-${ side }-color`;
+		const colorClass = getColorClassName( baseClassName, color );
+
+		return {
+			...classes,
+			[ `has-${ baseClassName }` ]: hasColor,
+			[ colorClass ]: !! colorClass,
+		};
+	}, {} );
+}
+
+/**
+ * Filters the registered block settings to apply border color styles and
+ * classnames to the block edit wrapper.
+ *
+ * @param {Object} settings Original block settings.
+ *
+ * @return {Object} Filtered block settings.
+ */
+function addEditProps( settings ) {
+	if (
+		! hasBorderSupport( settings, 'color' ) ||
+		shouldSkipSerialization( settings )
+	) {
+		return settings;
+	}
+
+	const existingGetEditWrapperProps = settings.getEditWrapperProps;
+	settings.getEditWrapperProps = ( attributes ) => {
+		let props = {};
+
+		if ( existingGetEditWrapperProps ) {
+			props = existingGetEditWrapperProps( attributes );
+		}
+
+		return addSaveProps( props, settings, attributes );
+	};
+
+	return settings;
+}
+
+/**
+ * This adds inline styles for color palette colors.
+ * Ideally, this is not needed and themes should load their palettes on the editor.
+ *
+ * @param {Function} BlockListBlock Original component.
+ *
+ * @return {Function} Wrapped component.
+ */
+export const withBorderColorPaletteStyles = createHigherOrderComponent(
+	( BlockListBlock ) => ( props ) => {
+		const { name, attributes } = props;
+		const { borderColor, sideBorderColors } = attributes;
+		const { colors } = useMultipleOriginColorsAndGradients();
+
+		if (
+			! hasBorderSupport( name, 'color' ) ||
+			shouldSkipSerialization( name )
+		) {
+			return <BlockListBlock { ...props } />;
+		}
+
+		const { color: borderColorValue } = getMultiOriginColor( {
+			colors,
+			namedColor: borderColor,
+		} );
+		const { color: borderTopColor } = getMultiOriginColor( {
+			colors,
+			namedColor: sideBorderColors?.top,
+		} );
+		const { color: borderRightColor } = getMultiOriginColor( {
+			colors,
+			namedColor: sideBorderColors?.right,
+		} );
+		const { color: borderBottomColor } = getMultiOriginColor( {
+			colors,
+			namedColor: sideBorderColors?.bottom,
+		} );
+		const { color: borderLeftColor } = getMultiOriginColor( {
+			colors,
+			namedColor: sideBorderColors?.left,
+		} );
+
+		const extraStyles = {
+			borderColor: borderColorValue,
+			borderTopColor,
+			borderRightColor,
+			borderBottomColor,
+			borderLeftColor,
+		};
+
+		let wrapperProps = props.wrapperProps;
+		wrapperProps = {
+			...props.wrapperProps,
+			style: {
+				...extraStyles,
+				...props.wrapperProps?.style,
+			},
+		};
+
+		return <BlockListBlock { ...props } wrapperProps={ wrapperProps } />;
+	}
+);
+
+addFilter(
+	'blocks.registerBlockType',
+	'core/border/addAttributes',
+	addAttributes
+);
+
+addFilter(
+	'blocks.getSaveContent.extraProps',
+	'core/border/addSaveProps',
+	addSaveProps
+);
+
+addFilter(
+	'blocks.registerBlockType',
+	'core/border/addEditProps',
+	addEditProps
+);
+
+addFilter(
+	'editor.BlockListBlock',
+	'core/border/with-border-color-palette-styles',
+	withBorderColorPaletteStyles
+);
